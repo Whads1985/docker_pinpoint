@@ -1,0 +1,76 @@
+
+networks:
+    pinpoint:
+        driver: bridge
+        name: pinpoint
+
+services:
+  pinpoint-hbase:
+    container_name: "pinpoint-hbase"
+    image: whads/pinpoint-hbase:2.5.4
+    networks:
+      - pinpoint
+
+    volumes:
+      - ./hbase_data:/data/hbase/hbase_data
+      - ./hbase_log:/data/hbase/logs
+    expose:
+      # HBase Master API port
+      - "60000"
+      # HBase Master Web UI
+      - "16010"
+      # Regionserver API port
+      - "60020"
+      # HBase Regionserver web UI
+      - "16301"
+    ports:
+      - "16010:16010"
+      - "16301:16301"
+    restart: always
+    depends_on:
+      - zoo1
+
+  zoo1:
+    image: zookeeper
+    container_name: zoo1
+    hostname: zoo1
+    restart: always
+    networks:
+      - pinpoint
+    volumes:
+      - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime:ro
+
+  pinpoint-collector:
+    depends_on:
+      - pinpoint-hbase
+      - zoo1
+    networks:
+        - pinpoint
+    container_name: pinpoint-collector
+    image: whads/pinpoint-collector:2.5.4
+    env_file:
+      - .env
+    restart: always
+
+    ports:
+        - "9991:9991"
+        - "9992:9992"
+        - "9993:9993"
+        - "9994:9994"
+
+  pinpoint-web:
+    depends_on:
+      - zoo1
+      - pinpoint-collector
+      - pinpoint-hbase
+    networks:
+        - pinpoint
+    container_name: pinpoint-web
+    image: whads/pinpoint-web:2.5.4
+    env_file:
+      - .env
+    restart: always
+    ports:
+        - "8080:8080"
+        - "9997:9997"
+
